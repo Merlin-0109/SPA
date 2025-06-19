@@ -52,10 +52,10 @@ typedef struct {
 typedef struct {
     double val;
     int prev;
-    bool selectedInStep;
+    int chosen;
 } DijkstraProcessEntry;
 
-DijkstraProcessEntry dijkstraProcessTab[MAX_VERTICES + 1][MAX_VERTICES];
+DijkstraProcessEntry DiTab[MAX_VERTICES + 1][MAX_VERTICES];
 
 struct Belltab {
     double dist;
@@ -93,6 +93,7 @@ void chooseAlgorithm();
 void convert_to_matrix(double **adjMatrix, Graph *graph);
 void dijkstra(double **adjMatrix, int V, int startNode, int endNode);
 void printDijkstraProcess(int V, int startNode, int totalSteps);
+void initDijkstraProcess(int step_counter, int V);
 
 bool bellmanFord(Graph* graph, int src);
 void printBellmanProcess(int V, int startNode);
@@ -237,45 +238,84 @@ int main(){
     return 0;
 }
 
-void printDijkstraProcess(int V, int startNode, int totalSteps) {
-    printf("\nBảng quá trình tìm đường đi (Với k là số lần lặp):\n");
-    printf("\nk        ");
-    for (int i = 0; i < V; i++) {
-        printf("%14d", i);
-    }
-    printf("\n_________");
-    for (int i = 0; i < V; i++) {
-        printf("______________");
-    }
-    printf("\n");
+void initDijkstraProcess(int step_counter, int V){
+    for (int i = 0; i < V; i++){
 
-    printf("0        ");
-    for (int i = 0; i < V; i++) {
-        if (dijkstraProcessTab[0][i].val == INFINITY) {
-            printf("   (INF, -)   ");
-        } else {
-            printf("  (%1.0lf, -)   ", dijkstraProcessTab[0][i].val);
+        switch(DiTab[step_counter - 1][i].chosen){
+            case 0:
+                if(DiTab[step_counter][i].chosen != 1)
+                    DiTab[step_counter][i].chosen = 0;
+                break;
+            case 1:
+                DiTab[step_counter][i].chosen = 2;
+                break;
+            case 2:
+                DiTab[step_counter][i].chosen = 2;    
+                break;
+            default: // -1
+                DiTab[step_counter][i].chosen = -1;
+                break;
         }
     }
+}
+
+void printDijkstraProcess(int V, int startNode, int totalSteps) {
+    // Beginning: 
+    printf("\nBảng quá trình tìm đường đi (Với k là số lần lặp):\n");
+    printf("\nk         "); 
+    for (int i = 0; i < V; i++){
+        printf("%-16d", i);
+    }
+    printf("\n_________");
+    for (int i = 0; i < V; i++){
+        printf("________________"); 
+    }
+
+    printf("\n0  ");  // 3 space
+    for (int i = 0; i < V; i++){
+        if (i != startNode){
+            printf("    (INF, -)    ");
+        }
+        else
+            printf("     (%.0lf, -)     ", DiTab[0][i].val);
+    }
     printf("\n");
 
-    for (int k = 1; k <= totalSteps; k++) {
-        printf("%-8d ", k);
+    // Main Process
+    for (int k = 1; k < totalSteps; k++) {
+
+        if(k < 10)
+            printf("%d  ", k);
+        else
+            printf("%d ", k);
+
         for (int j = 0; j < V; j++) {
-            if (dijkstraProcessTab[k][j].val == INFINITY) {
-                printf(" (INF, -)   ");
-            } else {
-                if (dijkstraProcessTab[k][j].val < 10 && dijkstraProcessTab[k][j].val >= 0) {
-                    printf("(%.1lf, %2d)   ", dijkstraProcessTab[k][j].val, dijkstraProcessTab[k][j].prev);
-                } else if (dijkstraProcessTab[k][j].val < 100 && dijkstraProcessTab[k][j].val >= 0) {
-                    printf("(%.1lf, %2d)   ", dijkstraProcessTab[k][j].val, dijkstraProcessTab[k][j].prev);
-                } else if (dijkstraProcessTab[k][j].val >= 100 && dijkstraProcessTab[k][j].val < INFINITY) {
-                    printf("(%.1lf, %2d)  ", dijkstraProcessTab[k][j].val, dijkstraProcessTab[k][j].prev);
-                }
-                else {
-                    printf("(%.1lf, %2d)  ", dijkstraProcessTab[k][j].val, dijkstraProcessTab[k][j].prev);
-                }
+            switch (DiTab[k][j].chosen){
+                case 0: // đỉnh chưa được đánh dấu *
+                    if (DiTab[k][j].val < 10 && DiTab[k][j].val >= 0) {
+                        printf("    (%.1lf, %2d)   ", DiTab[k][j].val, DiTab[k][j].prev); // 1.0   
+                    }
+                    else if (DiTab[k][j].val <= -10 && DiTab[k][j].val > -100 || DiTab[k][j].val >= 100) {
+                        printf("  (%.1lf, %2d)   ", DiTab[k][j].val, DiTab[k][j].prev);  // -11.0 or 111.0 
+                        } 
+                    else if (DiTab[k][j].val <= -100){
+                        printf(" (%.1lf, %2d)   ", DiTab[k][j].val, DiTab[k][j].prev);  // -111.0   
+                        }
+                        else {
+                        printf("   (%.1lf, %2d)   ", DiTab[k][j].val, DiTab[k][j].prev);  // 11.0 & -1.0 
+                    }
+                    break;
+                case 1: // đỉnh được đánh dấu *
+                    printf("        *       "); 
+                    break;
+                case 2: // đỉnh đã được *
+                    printf("        -       ");  
+                    break;
+                case -1: // đỉnh chưa động tới
+                    printf("    (INF, -)    "); 
+                    break;
             }
+
         }
         printf("\n");
     }
@@ -301,8 +341,8 @@ void convert_to_matrix(double **adjMatrix, Graph *graph){
 void dijkstra(double **adjMatrix, int V, int startNode, int endNode) {
     double dist[MAX_VERTICES];
     int prev[MAX_VERTICES];
-    bool visited[MAX_VERTICES];
-    int step_counter = 0;
+    bool visited[MAX_VERTICES]; 
+    int step_counter = 1;
 
     MinHeap* minHeap = createMinHeap(V);
     if (minHeap == NULL) {
@@ -320,48 +360,50 @@ void dijkstra(double **adjMatrix, int V, int startNode, int endNode) {
     insertHeap(minHeap, 0, startNode);
 
     for (int i = 0; i < V; i++) {
-        dijkstraProcessTab[0][i].val = (i == startNode) ? 0.0 : INFINITY;
-        dijkstraProcessTab[0][i].prev = -1;
-        dijkstraProcessTab[0][i].selectedInStep = false;
+        if (i != startNode){
+            DiTab[0][i].chosen = -1;
+        } else {
+            DiTab[0][i].chosen = 0; 
+        }
+        DiTab[0][i].val = dist[i];
+        DiTab[0][i].prev = prev[i];
     }
 
-    while (!isEmptyHeap(minHeap)) {
+    visited[startNode] = true;
+    DiTab[step_counter][startNode].chosen = 1;
+    while (!isEmptyHeap(minHeap)) {        
         HeapNode extractedNode = extractMin(minHeap);
         int u = extractedNode.vertex;
-        double current_dist_u = extractedNode.distance;
-
-        if (visited[u]) {
-            continue;
-        }
-        
-        step_counter++;
-        
-        for (int i = 0; i < V; i++) {
-            dijkstraProcessTab[step_counter][i].val = dist[i];
-            dijkstraProcessTab[step_counter][i].prev = prev[i];
-            dijkstraProcessTab[step_counter][i].selectedInStep = false;
-        }
-
+ 
         visited[u] = true;
-        dijkstraProcessTab[step_counter][u].selectedInStep = true;
+        DiTab[step_counter][u].chosen = 1;
+     
+        initDijkstraProcess(step_counter, V);
+        for (int i = 0; i < V; i++) {
+            DiTab[step_counter][i].val = dist[i];
+            DiTab[step_counter][i].prev = prev[i];
+        }
+        // if(u == endNode)             // in tới node cuối thôi
+        //     break;
 
         for (int v = 0; v < V; v++) {
             if (!visited[v] && adjMatrix[u][v] != NO_EDGE) {
                 if (dist[u] != INFINITY && (dist[u] + adjMatrix[u][v] < dist[v])) {
                     dist[v] = dist[u] + adjMatrix[u][v];
                     prev[v] = u;
-                    
+
                     if (minHeap->pos[v] == -1) { 
                          insertHeap(minHeap, dist[v], v);
                     } else {
                          decreaseKey(minHeap, v, dist[v]);
                     }
-                    
-                    dijkstraProcessTab[step_counter][v].val = dist[v];
-                    dijkstraProcessTab[step_counter][v].prev = prev[v];
+                    DiTab[step_counter][v].val = dist[v];
+                    DiTab[step_counter][v].prev = prev[v];
+                    DiTab[step_counter][v].chosen = 0;
                 }
-            }
+            }         
         }
+        step_counter++;
     }
 
     if (dist[endNode] == INFINITY) {
@@ -384,7 +426,7 @@ void dijkstra(double **adjMatrix, int V, int startNode, int endNode) {
             }
         }
         printf("\n");
-        printf("Độ dài đường đi ngắn nhất từ điểm %d đến điểm %d là: %.0lf\n", startNode, endNode, dist[endNode]);
+        printf("Độ dài đường đi ngắn nhất từ điểm %d đến điểm %d là: %g\n", startNode, endNode, dist[endNode]);
     }
 
     printf("\nBạn có muốn in quá trình thực hiện không? (y/n): ");
@@ -483,47 +525,96 @@ bool bellmanFord(Graph* graph, int src) {
     return true;
 }
 
-void printBellmanProcess(int V, int startNode) {
-    printf("\nBảng quá trình tìm đường đi (Với k là số lần lặp):\n");
-    printf("\nk        ");
-    for (int i = 0; i < V; i++){
-        printf("%14d", i);
+void printBellmanResult (double dist[MAX_VERTICES], int parent[MAX_VERTICES], int V, int src) {
+    printf("\nKhoang cach va duong di tu dinh %d:\n", src);
+    for (int i = 0; i < V; i++) {
+        if (dist[i] == INFINITY) {
+            printf("Dinh %d: Khong the den duoc\n", i);
+        } else {
+            printf("Dinh %d: Khoang cach = %g, Duong di: ", i, dist[i]);
+            int path[MAX_VERTICES];
+            int count = 0;
+            int current = i;
+
+            while (current != -1) {
+                path[count++] = current;
+                current = parent[current];
+            }
+            for (int j = count-1; j >= 0; j--) {
+                printf("%d", path[j]);
+                if (j > 0) printf(" -> ");
+            }
+            printf("\n");
+        }
     }
-    printf("\n_________");
+}
+
+void printBellmanProcess(int V, int startNode) {
+    // Beginning: 
+    printf("\nBảng quá trình tìm đường đi (Với k là số lần lặp):\n");
+    printf("\nk         "); 
     for (int i = 0; i < V; i++){
-        printf("______________");
+        printf("%-16d", i);
+    }
+    printf("\n_________");  
+    for (int i = 0; i < V; i++){
+        printf("________________"); 
     }
 
-    printf("\n0        ");
+    printf("\n0  ");
     for (int i = 0; i < V; i++){
         if (Btab[0][i].dist == INFINITY){
-            printf("   (INF, -)   ");
+            printf("    (INF, -)    ");
         }
         else
-            printf("  (%1.0lf, -)   ", Btab[0][i].dist);
+            printf("    (%.1lf, -)    ", Btab[0][i].dist);
     }
     printf("\n");
 
-    for (int k = 1; k < V; k++){
-        printf("%-8d ", k);
-        for (int j = 0; j < V; j++){
+    // Main process
+    for (int iter = 1; iter <= V; iter++){
+        int k = iter;
+        if(k < 10)
+            printf("%d  ", k); 
+        else
+            printf("%d ", k); 
+
+        if (iter == V)
+            k = V - 1;
+        // In cột đầu
+        if (Btab[k][0].dist == INFINITY){
+                printf("    (INF, -)   "); 
+        } else {
+            if (Btab[k][0].dist < 10 && Btab[k][0].dist >= 0)
+                printf("   (%.1lf, %2d)   ", Btab[k][0].dist, Btab[k][0].parent); // 1.0 
+            else if (Btab[k][0].dist <= -10 && Btab[k][0].dist > -100 || Btab[k][0].dist >= 100)
+                printf(" (%.1lf, %2d)   ", Btab[k][0].dist, Btab[k][0].parent);  // -11.0 or 111.0
+            else if (Btab[k][0].dist <= -100)
+                printf("(%.1lf, %2d)   ", Btab[k][0].dist, Btab[k][0].parent);  // -111.0
+            else   
+                printf("  (%.1lf, %2d)   ", Btab[k][0].dist, Btab[k][0].parent);  // 11.0 & -1.0
+        }
+        // In các cột khác
+        for (int j = 1; j < V; j++){
             if (Btab[k][j].dist == INFINITY){
-                printf(" (INF, -)   "); 
+                printf("     (INF, -)   ");
             } else {
                 if (Btab[k][j].dist < 10 && Btab[k][j].dist >= 0) {
-                    printf("(%.1lf, %2d)   ", Btab[k][j].dist, Btab[k][j].parent);
-                } else if (Btab[k][j].dist < 100 && Btab[k][j].dist >= 0) {
-                    printf("(%.1lf, %2d)   ", Btab[k][j].dist, Btab[k][j].parent);
-                } else if (Btab[k][j].dist >= 100 || Btab[k][j].dist < 0) {
-                    printf("(%.1lf, %2d)  ", Btab[k][j].dist, Btab[k][j].parent); 
+                    printf("    (%.1lf, %2d)   ", Btab[k][j].dist, Btab[k][j].parent); // 1.0
+                }
+                else if (Btab[k][j].dist <= -10 && Btab[k][j].dist > -100 || Btab[k][j].dist >= 100) {
+                    printf("  (%.1lf, %2d)   ", Btab[k][j].dist, Btab[k][j].parent);  // -11.0 or 111.0
+                } 
+                else if (Btab[k][j].dist <= -100){
+                    printf(" (%.1lf, %2d)   ", Btab[k][j].dist, Btab[k][j].parent);  // -111.0
                 }
                 else {
-                    printf("(%.1lf, %2d)  ", Btab[k][j].dist, Btab[k][j].parent); 
+                    printf("   (%.1lf, %2d)   ", Btab[k][j].dist, Btab[k][j].parent);  // 11.0 & -1.0
                 }
             }
         }
         printf("\n");
-    }
+    }   
 }
 
 
@@ -612,14 +703,14 @@ void inputGraphFromKeyboard(Graph* graph) {
     if (graphType == 0){
         for (int i = 0; i < graph->E; i+=2) {
             gotoxy(65,i/2+5);
-            printf("%d %d %.2lf\n", graph->edges[i].src, graph->edges[i].dest, graph->edges[i].weight);
+            printf("%d %d %g\n", graph->edges[i].src, graph->edges[i].dest, graph->edges[i].weight);
         }
         gotoxy(65,graph->E/2+5);
     }
     else if (graphType == 1){
         for (int i = 0; i< graph->E; i++){
             gotoxy(65,i+5);
-            printf("%d %d %.2lf\n", graph->edges[i].src, graph->edges[i].dest, graph->edges[i].weight);
+            printf("%d %d %g\n", graph->edges[i].src, graph->edges[i].dest, graph->edges[i].weight);
         }
         gotoxy(65,graph->E+5);
     }
@@ -689,7 +780,7 @@ void saveGraphToFile(Graph* graph, const char* filename) {
 
     fprintf(file, "%d %d\n", graph->V, graph->E);
     for (int i = 0; i < graph->E; i++) {
-        fprintf(file, "%d %d %.2lf\n",
+        fprintf(file, "%d %d %g\n",
                 graph->edges[i].src,
                 graph->edges[i].dest,
                 graph->edges[i].weight);
@@ -1041,28 +1132,4 @@ Edge dequeue(CircularQueue* q) {
     q->front = (q->front + 1) % QUEUE_SIZE;
     q->count--;
     return item;
-}
-
-void printBellmanResult (double dist[MAX_VERTICES], int parent[MAX_VERTICES], int V, int src) {
-    printf("\nKhoang cach va duong di tu dinh %d:\n", src);
-    for (int i = 0; i < V; i++) {
-        if (dist[i] == INFINITY) {
-            printf("Dinh %d: Khong the den duoc\n", i);
-        } else {
-            printf("Dinh %d: Khoang cach = %.1lf, Duong di: ", i, dist[i]);
-            int path[MAX_VERTICES];
-            int count = 0;
-            int current = i;
-
-            while (current != -1) {
-                path[count++] = current;
-                current = parent[current];
-            }
-            for (int j = count-1; j >= 0; j--) {
-                printf("%d", path[j]);
-                if (j > 0) printf(" -> ");
-            }
-            printf("\n");
-        }
-    }
 }
